@@ -6,7 +6,8 @@ from db.database import init_db, get_blacklist, log_violation
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "0"))
+LOG_CHANNEL_ID_ENV = os.getenv("LOG_CHANNEL_ID", "")
+LOG_CHANNEL_ID = int(LOG_CHANNEL_ID_ENV) if LOG_CHANNEL_ID_ENV.isdigit() else 0
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -26,6 +27,8 @@ def check_message(content: str) -> list[str]:
 async def on_ready():
     init_db()
     print(f"[Bot] 已登入：{client.user}")
+    for guild in client.guilds:
+        print(f"[Bot] 目前在 server：{guild.name} ({guild.id})")
     print(f"[Bot] 已載入黑名單：{len(get_blacklist())} 個詞")
 
 

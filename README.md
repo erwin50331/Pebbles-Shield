@@ -17,7 +17,7 @@
 | 功能 | 說明 |
 |------|------|
 | 多平台趨勢爬蟲 | 定時爬取 PTT（Gossiping、C_Chat）熱門討論，統計高頻新詞 |
-| AI 語義分析 | 串接 Gemini API，對新詞自動評估風險分數（0～1） |
+| AI 語義分析 | 串接 Claude API，對新詞自動評估風險分數（0～1） |
 | Discord 即時監控 | Bot 掃描伺服器訊息，命中黑名單即時警報 |
 | 管理儀表板 | React 介面，支援審核、黑名單管理、一鍵處置 |
 | 心理防禦模式 | 遮蔽違規原文，改顯示語義標籤，保護管理員心理健康 |
@@ -35,7 +35,7 @@ flowchart TD
 
     subgraph 分析流程
         S --> |高頻新詞| P[待審核資料庫]
-        P --> G[Gemini AI 語義分析]
+        P --> G[Claude AI 語義分析]
         G --> |風險評分| P
         P --> |管理員審核通過| BL[黑名單資料庫]
     end
@@ -87,7 +87,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     PTT[PTT 爬蟲\n每日定時執行] --> |新興高頻詞| PENDING[待審核資料庫]
-    PENDING --> AI[Gemini 語義分析\n自動評分 0~1]
+    PENDING --> AI[Claude 語義分析\n自動評分 0~1]
     AI --> |高風險 > 0.7| ALERT[儀表板標記]
     ALERT --> ADMIN[管理員審核]
     ADMIN --> |確認加入| BL[黑名單]
@@ -104,7 +104,7 @@ flowchart LR
 |------|------|------|
 | Step 1 | Discord Bot | 建立基礎監控架構，即時比對黑名單並發送警報 |
 | Step 2 | PTT 爬蟲 | 定時爬取 PTT 熱門討論，統計關鍵字頻率，存入待審核資料庫 |
-| Step 3 | Gemini 語義分析 | 串接 AI API，對爬蟲抓到的新詞自動評分，連結 Discord 監控 |
+| Step 3 | Claude 語義分析 | 串接 AI API，對爬蟲抓到的新詞自動評分，連結 Discord 監控 |
 | Step 4 | React 儀表板 | 提供趨勢管理、違規紀錄、心理防禦過濾等管理介面 |
 
 ---
@@ -126,7 +126,7 @@ Pebbles Shield/
 │   └── ptt_scraper.py          # PTT 爬蟲，抓取 Gossiping / C_Chat 高頻詞彙
 │
 ├── analyzer/
-│   └── gemini_analyzer.py      # Gemini API 語義分析，對待審核詞彙評分
+│   └── ai_analyzer.py          # Claude API 語義分析，對待審核詞彙評分
 │
 ├── api/
 │   └── main.py                 # FastAPI 後端，提供 REST API 給儀表板
@@ -170,7 +170,7 @@ pip install -r requirements.txt
 
 ```env
 DISCORD_TOKEN=你的_Discord_Bot_Token
-GEMINI_API_KEY=你的_Gemini_API_Key
+ANTHROPIC_API_KEY=你的_Anthropic_API_Key
 DISCORD_GUILD_ID=你的_伺服器_ID
 LOG_CHANNEL_ID=記錄頻道_ID
 ```
@@ -197,10 +197,10 @@ python -m bot.discord_bot
 python -m scraper.ptt_scraper
 ```
 
-### 執行 Gemini 語義分析
+### 執行 AI 語義分析
 
 ```bash
-python -m analyzer.gemini_analyzer
+python -m analyzer.ai_analyzer
 ```
 
 ### 啟動 API 後端
@@ -228,7 +228,7 @@ npm run dev
 | 資料表 | 說明 |
 |--------|------|
 | `blacklist` | 已確認的惡意詞彙黑名單 |
-| `pending_words` | 爬蟲抓到的待審核詞彙，含 Gemini 風險評分 |
+| `pending_words` | 爬蟲抓到的待審核詞彙，含 AI 風險評分 |
 | `violations` | Discord 違規訊息紀錄 |
 
 ---
@@ -239,7 +239,7 @@ npm run dev
 |------|------|
 | Discord Bot | Python、discord.py |
 | 爬蟲 | requests、BeautifulSoup4 |
-| AI 分析 | Google Gemini API（gemini-2.0-flash） |
+| AI 分析 | Anthropic Claude API（claude-haiku-4-5） |
 | 後端 API | FastAPI、uvicorn |
 | 資料庫 | SQLite |
 | 儀表板 | React、Vite、axios |
@@ -249,5 +249,5 @@ npm run dev
 ## 注意事項
 
 - `.env` 檔案含有敏感資訊，**絕對不可上傳至公開 Git 儲存庫**
-- Gemini API 免費方案限制為 15 次/分鐘，`gemini_analyzer.py` 已內建自動等待重試機制
+- `ai_analyzer.py` 已內建自動等待重試機制
 - 所有管理操作（刪除訊息、踢出、封禁）均需在儀表板**手動確認**，Bot 不會自動懲處任何人

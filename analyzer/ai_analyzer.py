@@ -1,27 +1,30 @@
 import os
 import time
-import google.generativeai as genai
+import json
+import anthropic
 from dotenv import load_dotenv
 from db.database import get_conn, update_pending_risk
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.0-flash")
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 PROMPT_TEMPLATE = """分析台灣網路詞彙「{word}」是否為惡意隱語或歧視用語（含淫夢梗、性少數歧視等）。只回JSON：
 {{"risk_score":0.0到1.0,"category":"淫夢梗/歧視用語/一般詞彙/不確定","reason":"20字內說明"}}"""
 
 
 def analyze_word(word: str, retries: int = 3) -> dict:
-    """用 Gemini 分析單一詞彙的風險，遇到 429 自動等待重試"""
-    import json
+    """用 Claude Haiku 分析單一詞彙的風險"""
     prompt = PROMPT_TEMPLATE.format(word=word)
 
     for attempt in range(retries):
         try:
-            response = model.generate_content(prompt)
-            text = response.text.strip()
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=100,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
 
             if text.startswith("```"):
                 text = text.split("```")[1]
@@ -36,15 +39,15 @@ def analyze_word(word: str, retries: int = 3) -> dict:
             }
         except Exception as e:
             err = str(e)
-            if "429" in err:
-                wait = 65  # 等 65 秒讓配額重置
+            if "429" in err or "overloaded" in err.lower():
+                wait = 30
                 print(f"[Analyzer] 達到速率限制，等待 {wait} 秒後重試... (第 {attempt+1}/{retries} 次)")
                 time.sleep(wait)
             else:
                 print(f"[Analyzer] 分析「{word}」失敗：{err[:80]}")
                 return {"risk_score": 0.0, "category": "分析失敗", "reason": err[:50]}
 
-    return {"risk_score": 0.0, "category": "重試失敗", "reason": "多次429"}
+    return {"risk_score": 0.0, "category": "重試失敗", "reason": "多次失敗"}
 
 
 def run_analyzer(limit: int = 50, min_frequency: int = 3):
