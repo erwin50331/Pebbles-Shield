@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: "http://localhost:8000" });
+const api = axios.create({ baseURL: "/api" });
 
 export const getStats = () => api.get("/violations/stats").then(r => r.data);
 export const getViolations = (limit = 50) => api.get(`/violations?limit=${limit}`).then(r => r.data);
